@@ -16,7 +16,11 @@ import * as errors from "../../errors";
 import { Request } from "express";
 import { plainToClass } from "class-transformer";
 import { ApiNestedQuery } from "../../decorators/api-nested-query.decorator";
+import * as nestAccessControl from "nest-access-control";
+import * as defaultAuthGuard from "../../auth/defaultAuth.guard";
 import { TweetService } from "../tweet.service";
+import { AclValidateRequestInterceptor } from "../../interceptors/aclValidateRequest.interceptor";
+import { AclFilterResponseInterceptor } from "../../interceptors/aclFilterResponse.interceptor";
 import { TweetCreateInput } from "./TweetCreateInput";
 import { Tweet } from "./Tweet";
 import { TweetFindManyArgs } from "./TweetFindManyArgs";
@@ -26,10 +30,24 @@ import { LikeFindManyArgs } from "../../like/base/LikeFindManyArgs";
 import { Like } from "../../like/base/Like";
 import { LikeWhereUniqueInput } from "../../like/base/LikeWhereUniqueInput";
 
+@swagger.ApiBearerAuth()
+@common.UseGuards(defaultAuthGuard.DefaultAuthGuard, nestAccessControl.ACGuard)
 export class TweetControllerBase {
-  constructor(protected readonly service: TweetService) {}
+  constructor(
+    protected readonly service: TweetService,
+    protected readonly rolesBuilder: nestAccessControl.RolesBuilder
+  ) {}
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @common.Post()
   @swagger.ApiCreatedResponse({ type: Tweet })
+  @nestAccessControl.UseRoles({
+    resource: "Tweet",
+    action: "create",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async createTweet(@common.Body() data: TweetCreateInput): Promise<Tweet> {
     return await this.service.createTweet({
       data: {
@@ -56,9 +74,18 @@ export class TweetControllerBase {
     });
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @common.Get()
   @swagger.ApiOkResponse({ type: [Tweet] })
   @ApiNestedQuery(TweetFindManyArgs)
+  @nestAccessControl.UseRoles({
+    resource: "Tweet",
+    action: "read",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async tweets(@common.Req() request: Request): Promise<Tweet[]> {
     const args = plainToClass(TweetFindManyArgs, request.query);
     return this.service.tweets({
@@ -78,9 +105,18 @@ export class TweetControllerBase {
     });
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @common.Get("/:id")
   @swagger.ApiOkResponse({ type: Tweet })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "Tweet",
+    action: "read",
+    possession: "own",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async tweet(
     @common.Param() params: TweetWhereUniqueInput
   ): Promise<Tweet | null> {
@@ -107,9 +143,18 @@ export class TweetControllerBase {
     return result;
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @common.Patch("/:id")
   @swagger.ApiOkResponse({ type: Tweet })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "Tweet",
+    action: "update",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async updateTweet(
     @common.Param() params: TweetWhereUniqueInput,
     @common.Body() data: TweetUpdateInput
@@ -152,6 +197,14 @@ export class TweetControllerBase {
   @common.Delete("/:id")
   @swagger.ApiOkResponse({ type: Tweet })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "Tweet",
+    action: "delete",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async deleteTweet(
     @common.Param() params: TweetWhereUniqueInput
   ): Promise<Tweet | null> {
@@ -181,8 +234,14 @@ export class TweetControllerBase {
     }
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @common.Get("/:id/likes")
   @ApiNestedQuery(LikeFindManyArgs)
+  @nestAccessControl.UseRoles({
+    resource: "Like",
+    action: "read",
+    possession: "any",
+  })
   async findLikes(
     @common.Req() request: Request,
     @common.Param() params: TweetWhereUniqueInput
@@ -218,6 +277,11 @@ export class TweetControllerBase {
   }
 
   @common.Post("/:id/likes")
+  @nestAccessControl.UseRoles({
+    resource: "Tweet",
+    action: "update",
+    possession: "any",
+  })
   async connectLikes(
     @common.Param() params: TweetWhereUniqueInput,
     @common.Body() body: LikeWhereUniqueInput[]
@@ -235,6 +299,11 @@ export class TweetControllerBase {
   }
 
   @common.Patch("/:id/likes")
+  @nestAccessControl.UseRoles({
+    resource: "Tweet",
+    action: "update",
+    possession: "any",
+  })
   async updateLikes(
     @common.Param() params: TweetWhereUniqueInput,
     @common.Body() body: LikeWhereUniqueInput[]
@@ -252,6 +321,11 @@ export class TweetControllerBase {
   }
 
   @common.Delete("/:id/likes")
+  @nestAccessControl.UseRoles({
+    resource: "Tweet",
+    action: "update",
+    possession: "any",
+  })
   async disconnectLikes(
     @common.Param() params: TweetWhereUniqueInput,
     @common.Body() body: LikeWhereUniqueInput[]

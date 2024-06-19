@@ -16,17 +16,35 @@ import * as errors from "../../errors";
 import { Request } from "express";
 import { plainToClass } from "class-transformer";
 import { ApiNestedQuery } from "../../decorators/api-nested-query.decorator";
+import * as nestAccessControl from "nest-access-control";
+import * as defaultAuthGuard from "../../auth/defaultAuth.guard";
 import { FollowService } from "../follow.service";
+import { AclValidateRequestInterceptor } from "../../interceptors/aclValidateRequest.interceptor";
+import { AclFilterResponseInterceptor } from "../../interceptors/aclFilterResponse.interceptor";
 import { FollowCreateInput } from "./FollowCreateInput";
 import { Follow } from "./Follow";
 import { FollowFindManyArgs } from "./FollowFindManyArgs";
 import { FollowWhereUniqueInput } from "./FollowWhereUniqueInput";
 import { FollowUpdateInput } from "./FollowUpdateInput";
 
+@swagger.ApiBearerAuth()
+@common.UseGuards(defaultAuthGuard.DefaultAuthGuard, nestAccessControl.ACGuard)
 export class FollowControllerBase {
-  constructor(protected readonly service: FollowService) {}
+  constructor(
+    protected readonly service: FollowService,
+    protected readonly rolesBuilder: nestAccessControl.RolesBuilder
+  ) {}
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @common.Post()
   @swagger.ApiCreatedResponse({ type: Follow })
+  @nestAccessControl.UseRoles({
+    resource: "Follow",
+    action: "create",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async createFollow(@common.Body() data: FollowCreateInput): Promise<Follow> {
     return await this.service.createFollow({
       data: data,
@@ -40,9 +58,18 @@ export class FollowControllerBase {
     });
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @common.Get()
   @swagger.ApiOkResponse({ type: [Follow] })
   @ApiNestedQuery(FollowFindManyArgs)
+  @nestAccessControl.UseRoles({
+    resource: "Follow",
+    action: "read",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async follows(@common.Req() request: Request): Promise<Follow[]> {
     const args = plainToClass(FollowFindManyArgs, request.query);
     return this.service.follows({
@@ -57,9 +84,18 @@ export class FollowControllerBase {
     });
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @common.Get("/:id")
   @swagger.ApiOkResponse({ type: Follow })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "Follow",
+    action: "read",
+    possession: "own",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async follow(
     @common.Param() params: FollowWhereUniqueInput
   ): Promise<Follow | null> {
@@ -81,9 +117,18 @@ export class FollowControllerBase {
     return result;
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @common.Patch("/:id")
   @swagger.ApiOkResponse({ type: Follow })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "Follow",
+    action: "update",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async updateFollow(
     @common.Param() params: FollowWhereUniqueInput,
     @common.Body() data: FollowUpdateInput
@@ -113,6 +158,14 @@ export class FollowControllerBase {
   @common.Delete("/:id")
   @swagger.ApiOkResponse({ type: Follow })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "Follow",
+    action: "delete",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async deleteFollow(
     @common.Param() params: FollowWhereUniqueInput
   ): Promise<Follow | null> {

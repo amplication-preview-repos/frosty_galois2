@@ -13,6 +13,12 @@ import * as graphql from "@nestjs/graphql";
 import { GraphQLError } from "graphql";
 import { isRecordNotFoundError } from "../../prisma.util";
 import { MetaQueryPayload } from "../../util/MetaQueryPayload";
+import * as nestAccessControl from "nest-access-control";
+import * as gqlACGuard from "../../auth/gqlAC.guard";
+import { GqlDefaultAuthGuard } from "../../auth/gqlDefaultAuth.guard";
+import * as common from "@nestjs/common";
+import { AclFilterResponseInterceptor } from "../../interceptors/aclFilterResponse.interceptor";
+import { AclValidateRequestInterceptor } from "../../interceptors/aclValidateRequest.interceptor";
 import { Follow } from "./Follow";
 import { FollowCountArgs } from "./FollowCountArgs";
 import { FollowFindManyArgs } from "./FollowFindManyArgs";
@@ -21,10 +27,20 @@ import { CreateFollowArgs } from "./CreateFollowArgs";
 import { UpdateFollowArgs } from "./UpdateFollowArgs";
 import { DeleteFollowArgs } from "./DeleteFollowArgs";
 import { FollowService } from "../follow.service";
+@common.UseGuards(GqlDefaultAuthGuard, gqlACGuard.GqlACGuard)
 @graphql.Resolver(() => Follow)
 export class FollowResolverBase {
-  constructor(protected readonly service: FollowService) {}
+  constructor(
+    protected readonly service: FollowService,
+    protected readonly rolesBuilder: nestAccessControl.RolesBuilder
+  ) {}
 
+  @graphql.Query(() => MetaQueryPayload)
+  @nestAccessControl.UseRoles({
+    resource: "Follow",
+    action: "read",
+    possession: "any",
+  })
   async _followsMeta(
     @graphql.Args() args: FollowCountArgs
   ): Promise<MetaQueryPayload> {
@@ -34,12 +50,24 @@ export class FollowResolverBase {
     };
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.Query(() => [Follow])
+  @nestAccessControl.UseRoles({
+    resource: "Follow",
+    action: "read",
+    possession: "any",
+  })
   async follows(@graphql.Args() args: FollowFindManyArgs): Promise<Follow[]> {
     return this.service.follows(args);
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.Query(() => Follow, { nullable: true })
+  @nestAccessControl.UseRoles({
+    resource: "Follow",
+    action: "read",
+    possession: "own",
+  })
   async follow(
     @graphql.Args() args: FollowFindUniqueArgs
   ): Promise<Follow | null> {
@@ -50,7 +78,13 @@ export class FollowResolverBase {
     return result;
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @graphql.Mutation(() => Follow)
+  @nestAccessControl.UseRoles({
+    resource: "Follow",
+    action: "create",
+    possession: "any",
+  })
   async createFollow(@graphql.Args() args: CreateFollowArgs): Promise<Follow> {
     return await this.service.createFollow({
       ...args,
@@ -58,7 +92,13 @@ export class FollowResolverBase {
     });
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @graphql.Mutation(() => Follow)
+  @nestAccessControl.UseRoles({
+    resource: "Follow",
+    action: "update",
+    possession: "any",
+  })
   async updateFollow(
     @graphql.Args() args: UpdateFollowArgs
   ): Promise<Follow | null> {
@@ -78,6 +118,11 @@ export class FollowResolverBase {
   }
 
   @graphql.Mutation(() => Follow)
+  @nestAccessControl.UseRoles({
+    resource: "Follow",
+    action: "delete",
+    possession: "any",
+  })
   async deleteFollow(
     @graphql.Args() args: DeleteFollowArgs
   ): Promise<Follow | null> {

@@ -5,17 +5,28 @@ import { customSeed } from "./customSeed";
 if (require.main === module) {
   dotenv.config();
 
-  const { BCRYPT_SALT } = process.env;
-
-  if (!BCRYPT_SALT) {
-    throw new Error("BCRYPT_SALT environment variable must be defined");
-  }
+  seed().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
 }
 
 async function seed() {
   console.info("Seeding database...");
 
   const client = new PrismaClient();
+  const data = {
+    password: "admin",
+    roles: ["user"],
+    username: "admin",
+  };
+  await client.user.upsert({
+    where: {
+      username: data.username,
+    },
+    update: {},
+    create: data,
+  });
   void client.$disconnect();
 
   console.info("Seeding database with custom seed...");
